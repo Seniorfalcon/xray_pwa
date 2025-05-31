@@ -3,7 +3,7 @@ self.addEventListener('install', function(e) {
     caches.open('xray-scanner-cache').then(function(cache) {
       return cache.addAll([
         '/',
-        '/xray_scanner_readings_editable.html',
+        '/index.html',
         '/manifest.json'
       ]);
     })
