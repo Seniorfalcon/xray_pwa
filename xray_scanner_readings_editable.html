@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recording X-ray Scanner Readings</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet"/>
+  <link rel="manifest" href="manifest.json">
+  <script src="register-sw.js"></script>
+  <link rel="manifest" href="manifest.json">
+  <script src="register-sw.js"></script>
+  <style>
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background-color: #f0f0f0;
+      color: #000;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: #fff;
+      border: 2px solid #444;
+      border-radius: 8px;
+      padding: 30px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input[type="number"], input[type="date"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn {
+      padding: 10px;
+      flex: 1;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-primary {
+      background: #333;
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #aaa;
+      color: #000;
+    }
+    .btn-export {
+      background: #666;
+      color: #fff;
+    }
+    .btn-danger {
+      background: #c00;
+      color: #fff;
+    }
+    .success-message {
+      background: #cfc;
+      border: 1px solid #090;
+      padding: 10px;
+      text-align: center;
+      margin: 20px 0;
+      display: none;
+    }
+    .data-preview {
+      margin-top: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Recording X-ray Scanner Readings</h1>
+    </div>
+    <form id="deviceForm">
+      <label for="date">Date</label>
+      <input type="date" id="date" name="date" required>
+      <label for="device1">Device 1 Reading</label>
+      <input type="number" id="device1" name="device1" step="0.01" required>
+      <label for="device2">Device 2 Reading</label>
+      <input type="number" id="device2" name="device2" step="0.01" required>
+      <label for="device3">Device 3 Reading</label>
+      <input type="number" id="device3" name="device3" step="0.01" required>
+      <label for="device4">Device 4 Reading</label>
+      <input type="number" id="device4" name="device4" step="0.01" required>
+      <label for="device5">Device 5 Reading</label>
+      <input type="number" id="device5" name="device5" step="0.01" required>
+      <div class="button-group">
+        <button type="submit" class="btn btn-primary">Save Reading</button>
+        <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear</button>
+        <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete Previous Data</button>
+        <button type="button" class="btn btn-secondary" id="cancelEditBtn" onclick="cancelEdit()" style="display: none;">Cancel Edit</button>
+      </div>
+    </form>
+    <div class="success-message" id="successMessage">Reading saved successfully!</div>
+    <div class="button-group">
+      <button type="button" class="btn btn-export" onclick="exportToExcel()">Export to Excel</button>
+    </div>
+    <div class="data-preview" id="dataPreview">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Device 1</th>
+            <th>Device 2</th>
+            <th>Device 3</th>
+            <th>Device 4</th>
+            <th>Device 5</th>
+            <th>Edit</th>
+          </tr>
+        </thead>
+        <tbody id="dataTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const storageKey = 'xrayScannerReadings';
+    let readings = JSON.parse(localStorage.getItem(storageKey)) || [];
+    let editIndex = -1;
+    document.getElementById('deviceForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const reading = {
+        date: formData.get('date'),
+        device1: parseFloat(formData.get('device1')),
+        device2: parseFloat(formData.get('device2')),
+        device3: parseFloat(formData.get('device3')),
+        device4: parseFloat(formData.get('device4')),
+        device5: parseFloat(formData.get('device5'))
+      };
+      if (editIndex > -1) {
+        if (confirm('Do you want to save the changes to this entry?')) {
+          readings[editIndex] = reading;
+          editIndex = -1;
+          showSuccessMessage('Reading updated successfully!');
+        }
+      } else {
+        readings.push(reading);
+        showSuccessMessage('Reading saved successfully!');
+      }
+      localStorage.setItem(storageKey, JSON.stringify(readings));
+      updateTable();
+      clearForm();
+    });
+    function loadReadingForEdit(index) {
+      const r = readings[index];
+      document.getElementById('date').value = r.date;
+      document.getElementById('device1').value = r.device1;
+      document.getElementById('device2').value = r.device2;
+      document.getElementById('device3').value = r.device3;
+      document.getElementById('device4').value = r.device4;
+      document.getElementById('device5').value = r.device5;
+      editIndex = index;
+      document.getElementById('cancelEditBtn').style.display = 'inline-block';
+    }
+    function clearForm() {
+      document.getElementById('deviceForm').reset();
+      document.getElementById('date').valueAsDate = new Date();
+      editIndex = -1;
+      document.getElementById('cancelEditBtn').style.display = 'none';
+    }
+    function cancelEdit() {
+      clearForm();
+    }
+    function showSuccessMessage(msgText = 'Reading saved successfully!') {
+      const msg = document.getElementById('successMessage');
+      msg.textContent = msgText;
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 3000);
+    }
+    function updateTable() {
+      const tbody = document.getElementById('dataTableBody');
+      tbody.innerHTML = '';
+      readings.forEach((r, index) => {
+        const row = tbody.insertRow();
+        row.insertCell(0).textContent = r.date;
+        row.insertCell(1).textContent = r.device1.toFixed(2);
+        row.insertCell(2).textContent = r.device2.toFixed(2);
+        row.insertCell(3).textContent = r.device3.toFixed(2);
+        row.insertCell(4).textContent = r.device4.toFixed(2);
+        row.insertCell(5).textContent = r.device5.toFixed(2);
+        const editCell = row.insertCell(6);
+        const editButton = document.createElement('button');
+        editButton.textContent = 'Edit';
+        editButton.className = 'btn btn-secondary';
+        editButton.onclick = () => loadReadingForEdit(index);
+        editCell.appendChild(editButton);
+      });
+    }
+    function exportToExcel() {
+      if (readings.length === 0) return alert('No data to export.');
+      const data = readings.map(r => ({
+        'Date': r.date,
+        'Device 1': r.device1,
+        'Device 2': r.device2,
+        'Device 3': r.device3,
+        'Device 4': r.device4,
+        'Device 5': r.device5
+      }));
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "X-ray Readings");
+      XLSX.writeFile(wb, `Xray_Readings_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+    function deleteAllData() {
+      if (confirm('Are you sure you want to delete all saved readings?')) {
+        localStorage.removeItem(storageKey);
+        readings = [];
+        updateTable();
+        alert('All data has been deleted.');
+      }
+    }
+    document.getElementById('date').valueAsDate = new Date();
+    updateTable();
+  </script>
+</body>
+</html>
