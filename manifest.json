@@ -1,7 +1,7 @@
 {
   "name": "X-ray Scanner Readings",
   "short_name": "X-ray Readings",
-  "start_url": "xray_scanner_readings_editable.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#f0f0f0",
   "theme_color": "#333333",
